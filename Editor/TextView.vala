@@ -10,6 +10,7 @@ namespace Editor {
     class TextView : Actor {
         private TextBuffer buffer;
         private Pango.Layout layout;
+        private TextLayout text_layout;
         private bool has_focus;
         private BindingPool pool;
 
@@ -20,8 +21,20 @@ namespace Editor {
             TextTagTable tagtable = new TextTagTable();
             buffer = new TextBuffer(tagtable);
 
+            text_layout = new TextLayout(buffer);
+
             // Insert bindings
             pool = BindingPool.get_for_class(this.get_class());
+            pool.install_action("delete-prev", 0xff08, 0,
+                    (obj, action, keyval, modifiers) => {
+                // Can't just pass delete_previous for some reason. Vala bug?
+                return delete_previous(action, keyval, modifiers);
+            });
+            pool.install_action("delete-prev", 0xff08, ModifierType.CONTROL_MASK,
+                    (obj, action, keyval, modifiers) => {
+                // Can't just pass delete_previous for some reason. Vala bug?
+                return delete_previous(action, keyval, modifiers);
+            });
 
             // Connect events
             button_press_event.connect(button_press);
@@ -31,48 +44,24 @@ namespace Editor {
             key_release_event.connect(key_release);
 
             key_focus_in.connect(() => {
-                // print("getting focus\n");
                 has_focus = true;
                 queue_redraw();
             });
             key_focus_out.connect(() => {
-                // print("losing focus\n");
                 has_focus = false;
                 queue_redraw();
             });
         }
 
-        public override void get_preferred_width(float for_height, out float min_width_p, out float natural_width_p) {
-            min_width_p = 300;
-            natural_width_p = 300;
-        }
-
-        public override void get_preferred_height(float for_width, out float min_height_p, out float natural_height_p) {
-            min_height_p = 300;
-            natural_height_p = 500;
-        }
-
         public void insert_text(string text) {
             buffer.insert_at_cursor(text, -1);
-
-            TextIter start, end;
-            buffer.get_start_iter(out start);
-            buffer.get_end_iter(out end);
-
-            get_layout().set_text(buffer.get_text(start, end, true), -1);
-            queue_redraw();
+            update_layout_text();
         }
 
         public void insert_unichar(unichar c) {
             if (c != 0) {
                 buffer.insert_at_cursor(c.to_string(), 1);
-
-                TextIter start, end;
-                buffer.get_start_iter(out start);
-                buffer.get_end_iter(out end);
-
-                get_layout().set_text(buffer.get_text(start, end, true), -1);
-                queue_redraw();
+                update_layout_text();
             }
         }
 
@@ -135,7 +124,7 @@ namespace Editor {
                 } else if (e.click_count == 2) {
                     // Select words
                 } else if (e.click_count == 3) {
-                    // Select lines
+                    // Select paragraphs
                 }
                 queue_redraw();
             }
@@ -155,6 +144,9 @@ namespace Editor {
 
         private bool key_press(KeyEvent e) {
             // Look for registered keypresses in the pool first
+            if (pool.activate(e.keyval, e.modifier_state, this)) {
+                return true;
+            }
 
             // Ignore keypresses when control was held
             if ((e.modifier_state & ModifierType.CONTROL_MASK) == 0) {
@@ -169,6 +161,35 @@ namespace Editor {
 
         private bool key_release() {
             return false;
+        }
+
+        private bool delete_previous(string action, uint keyval, ModifierType modifiers) {
+            if ((modifiers & ModifierType.CONTROL_MASK) != 0) {
+                // Control held, delete previous word
+                TextIter insertIter, wordStart;
+                buffer.get_iter_at_mark(out insertIter, buffer.get_insert());
+                wordStart = insertIter;
+                wordStart.backward_word_start();
+
+                buffer.delete(insertIter, wordStart);
+            } else {
+                TextIter insertIter;
+                buffer.get_iter_at_mark(out insertIter, buffer.get_insert());
+
+                buffer.backspace(insertIter, true, true);
+            }
+            update_layout_text();
+            return true;
+        }
+
+        private void update_layout_text() {
+            TextIter start, end;
+            buffer.get_start_iter(out start);
+            buffer.get_end_iter(out end);
+
+            // get_layout() might not know its size before rendering.
+            get_layout().set_text(buffer.get_text(start, end, true), -1);
+            queue_redraw();
         }
 
         private Pango.Layout create_layout(float width, float height) {
