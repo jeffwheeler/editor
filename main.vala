@@ -1,59 +1,59 @@
-using Clutter;
+using Gtk;
 
 using Editor;
 
 public class EditorApp : GLib.Object {
-    Stage stage;
-    TextView text;
+    Window window;
+    TextEditor text;
 
     public static int main(string[] args) {
-        Clutter.init(ref args);
+        Gtk.init(ref args);
 
         EditorApp app = new EditorApp();
         app.show();
 
-        Clutter.main();
+        Gtk.main();
 
         return 0;
     }
 
     construct {
-        stage = Stage.get_default();
-        stage.width = 1000;
-        stage.height = 850;
-        // stage.set_fullscreen(true);
+        window = new Gtk.Window();
+        window.destroy.connect(() => {
+            Gtk.main_quit();
+        });
 
-        stage.hide.connect(Clutter.main_quit);
-
-        // Setup container box
-        var layout = new BoxLayout();
-        var box = new Box(layout);
-        box.width = stage.width;
-        box.height = stage.height;
-        stage.add(box);
-
-        // Setup text
-        var textContainer = new Box(new FixedLayout());
-        text = new TextView();
-        text.height = stage.height - 60;
-        text.width = stage.width - 250;
-        text.set_position(30, 30);
-
-        textContainer.pack(text);
-        box.pack(textContainer);
-
-        // Add rect
-        var rect = new Rectangle.with_color(Color.from_string("pink"));
-        rect.width = 250;
-        rect.height = stage.height;
-        box.pack(rect);
+        text = new TextEditor();
+        window.add(text);
 
         // Add default text
-        text.insert_text("Quisque dapibus commodo arcu nec tristique. Sed at nulla id neque ornare scelerisque nec non purus. Curabitur consectetur pharetra sapien ut porttitor. Cum sociis natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Donec aliquet sollicitudin tellus, sagittis tempor nibh eleifend id. Suspendisse potenti. Aliquam laoreet nisi mattis lacus hendrerit eget varius tortor mollis. Sed bibendum, ipsum eu tempor gravida, neque erat malesuada nunc, vitae elementum nibh erat nec eros. Nullam sed nisi libero, quis hendrerit dui. Vivamus semper tortor id risus egestas porta. Pellentesque porta scelerisque ultricies. Nunc justo diam, luctus vitae tristique vel, condimentum vitae turpis. Pellentesque ac velit id orci lacinia placerat eget eget lorem.\nNunc auctor sollicitudin dui non pellentesque. Aliquam erat volutpat. Fusce vel velit a nisl condimentum mattis. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer vitae metus risus, vitae congue magna. Aliquam a purus odio, nec egestas mauris. Suspendisse potenti. Nulla quis ligula lorem. Vestibulum dolor tellus, vehicula at sollicitudin tempor, rutrum non enim. Phasellus vitae pulvinar justo.");
+        insert_default_content();
     }
 
     public void show() {
-        stage.show_all();
-        stage.ensure_viewport();
+        window.show_all();
+    }
+
+    private void insert_default_content() {
+        TextIter insert;
+        text.buffer.get_iter_at_mark(out insert, text.buffer.get_insert());
+        text.buffer.insert_with_tags_by_name(insert, "Think Different!\n", -1, "h1");
+        text.buffer.get_iter_at_mark(out insert, text.buffer.get_insert());
+        text.buffer.insert_with_tags_by_name(insert, "The Crazy Ones\n", -1, "h2");
+        text.buffer.get_iter_at_mark(out insert, text.buffer.get_insert());
+        text.buffer.insert_with_tags_by_name(insert, "Here’s to the crazy ones. The misfits. The rebels. The troublemakers. The round pegs in the square holes.\nThe ones who see things differently. They’re not fond of rules. And they have no respect for the status quo. You can quote them, disagree with them, glorify or vilify them.\nAbout the only thing you can’t do is ignore them. Because they change things. They invent. They imagine. They heal. They explore. They create. They inspire. They push the human race forward.\nMaybe they have to be crazy.\nHow else can you stare at an empty canvas and see a work of art? Or sit in silence and hear a song that’s never been written? Or gaze at a red planet and see a laboratory on wheels?\nWhile some see them as the crazy ones, we see genius. Because the people who are crazy enough to think they can change the world, are the ones who do.\n", -1, "body");
+
+        TextIter start, end;
+        text.buffer.get_iter_at_line_index(out start, 3, 9);
+        text.buffer.get_iter_at_line_index(out end, 3, 35);
+        text.buffer.apply_tag_by_name("strong", start, end);
+
+        text.buffer.get_iter_at_line_index(out start, 2, 57);
+        text.buffer.get_iter_at_line_index(out end, 2, 70);
+        text.buffer.apply_tag_by_name("underline", start, end);
+
+        text.buffer.get_iter_at_line_index(out start, 2, 76);
+        text.buffer.get_iter_at_line_index(out end, 2, 107);
+        text.buffer.apply_tag_by_name("em", start, end);
     }
 }
